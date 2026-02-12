@@ -2,38 +2,45 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>P2P Compass Pointer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Compass → Target</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="wrap">
-    <h1>Compass → Target</h1>
+    <header class="top">
+      <h1>Compass → Target</h1>
+      <div class="chips">
+        <span class="chip" id="secureChip">HTTPS?</span>
+        <span class="chip" id="permChip">Sensors</span>
+        <span class="chip" id="locChip">Location</span>
+      </div>
+    </header>
 
     <section class="card">
       <div class="row">
         <label>
           Target Lat
-          <input id="tLat" inputmode="decimal" placeholder="e.g. 17.3850" />
+          <input id="tLat" inputmode="decimal" autocomplete="off" placeholder="17.3850" />
         </label>
         <label>
           Target Lon
-          <input id="tLon" inputmode="decimal" placeholder="e.g. 78.4867" />
+          <input id="tLon" inputmode="decimal" autocomplete="off" placeholder="78.4867" />
         </label>
       </div>
 
       <div class="row buttons">
         <button id="saveBtn">Save target</button>
-        <button id="useMyLocBtn">Use my current location as target</button>
+        <button id="useMyLocBtn">Use my location</button>
       </div>
 
       <div class="row buttons">
-        <button id="startBtn" class="primary">Start sensors</button>
+        <button id="startBtn" class="primary">Start</button>
         <button id="stopBtn">Stop</button>
       </div>
 
       <p class="hint">
-        Works best on mobile Chrome/Edge/Safari. Needs HTTPS (localhost is fine).
+        Tip: open on phone browser. Needs HTTPS (localhost is fine). iOS needs permission on Start.
       </p>
     </section>
 
@@ -41,6 +48,7 @@
       <div class="compass">
         <div class="ring"></div>
         <div id="arrow" class="arrow"></div>
+
         <div class="label north">N</div>
         <div class="label east">E</div>
         <div class="label south">S</div>
@@ -48,16 +56,18 @@
       </div>
 
       <div class="stats">
-        <div><span>Heading:</span> <b id="headingVal">—</b></div>
-        <div><span>Target bearing:</span> <b id="bearingVal">—</b></div>
-        <div><span>Turn:</span> <b id="deltaVal">—</b></div>
-        <div><span>Distance:</span> <b id="distVal">—</b></div>
+        <div><span>Heading</span><b id="headingVal">—</b></div>
+        <div><span>Bearing</span><b id="bearingVal">—</b></div>
+        <div><span>Turn</span><b id="deltaVal">—</b></div>
+        <div><span>Distance</span><b id="distVal">—</b></div>
       </div>
 
       <pre id="status" class="status">Idle.</pre>
     </section>
   </main>
 
+  <!-- geolib UMD build -->
+  <script src="https://unpkg.com/geolib@3.3.4/lib/index.umd.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
