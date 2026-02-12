@@ -1,12 +1,11 @@
 :root{
   --bg:#0b0e14;
-  --card:#121826;
   --text:#e8eefc;
   --muted:#9fb0d0;
   --line:rgba(255,255,255,.10);
   --accent:#6aa9ff;
-  --ok:rgba(87, 227, 137, .25);
-  --bad:rgba(255, 99, 99, .25);
+  --ok:rgba(87,227,137,.25);
+  --bad:rgba(255,99,99,.25);
 }
 
 *{box-sizing:border-box}
@@ -35,22 +34,16 @@ body{
   gap:12px;
 }
 
-h1{
-  margin:6px 0 0;
-  font-size:20px;
-  letter-spacing:.2px;
-}
+h1{margin:6px 0 0;font-size:20px;letter-spacing:.2px}
 
 .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .chip{
-  font-size:12px;
-  color:var(--muted);
+  font-size:12px;color:var(--muted);
   border:1px solid var(--line);
   border-radius:999px;
   padding:6px 10px;
   background:rgba(0,0,0,.25);
 }
-
 .chip.ok{border-color:rgba(87,227,137,.35); background:var(--ok); color:rgba(232,238,252,.9)}
 .chip.bad{border-color:rgba(255,99,99,.35); background:var(--bad); color:rgba(232,238,252,.9)}
 
@@ -68,13 +61,7 @@ h1{
   margin-bottom:10px;
 }
 
-label{
-  display:grid;
-  gap:6px;
-  font-size:12px;
-  color:var(--muted);
-}
-
+label{display:grid;gap:6px;font-size:12px;color:var(--muted)}
 input{
   width:100%;
   padding:12px 12px;
@@ -83,7 +70,7 @@ input{
   background:rgba(0,0,0,.25);
   color:var(--text);
   outline:none;
-  font-size:16px; /* mobile friendly: prevents iOS zoom */
+  font-size:16px; /* prevent iOS zoom */
 }
 
 .buttons{grid-template-columns:1fr 1fr}
@@ -95,7 +82,7 @@ button{
   background:rgba(0,0,0,.25);
   color:var(--text);
   cursor:pointer;
-  font-size:16px; /* mobile friendly */
+  font-size:16px;
 }
 
 button.primary{
@@ -112,6 +99,12 @@ button:active{transform:translateY(1px)}
   line-height:1.4;
 }
 
+code{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  color: rgba(232,238,252,.9);
+}
+
 .compass{
   width:min(320px, 80vw);
   height:min(320px, 80vw);
@@ -120,28 +113,22 @@ button:active{transform:translateY(1px)}
 }
 
 .ring{
-  position:absolute;
-  inset:0;
+  position:absolute; inset:0;
   border-radius:50%;
   border:2px solid rgba(255,255,255,.10);
   background:radial-gradient(circle at 50% 50%, rgba(0,0,0,.12), rgba(0,0,0,.42));
 }
 
 .arrow{
-  position:absolute;
-  left:50%;
-  top:50%;
-  width:10px;
-  height:46%;
+  position:absolute; left:50%; top:50%;
+  width:10px; height:46%;
   transform-origin:50% 92%;
   transform:translate(-50%, -92%) rotate(0deg);
 }
 
 .arrow::before{
   content:"";
-  position:absolute;
-  left:50%;
-  top:0;
+  position:absolute; left:50%; top:0;
   transform:translateX(-50%);
   width:0;height:0;
   border-left:16px solid transparent;
@@ -152,12 +139,9 @@ button:active{transform:translateY(1px)}
 
 .arrow::after{
   content:"";
-  position:absolute;
-  left:50%;
-  top:22px;
+  position:absolute; left:50%; top:22px;
   transform:translateX(-50%);
-  width:6px;
-  height:calc(100% - 22px);
+  width:6px; height:calc(100% - 22px);
   border-radius:999px;
   background:rgba(106,169,255,.65);
 }
@@ -169,7 +153,6 @@ button:active{transform:translateY(1px)}
   text-shadow:0 2px 10px rgba(0,0,0,.35);
   user-select:none;
 }
-
 .north{left:50%; top:6px; transform:translateX(-50%)}
 .south{left:50%; bottom:6px; transform:translateX(-50%)}
 .east{right:8px; top:50%; transform:translateY(-50%)}
@@ -193,7 +176,6 @@ button:active{transform:translateY(1px)}
   padding:10px 12px;
   background:rgba(0,0,0,.18);
 }
-
 .stats b{color:var(--text)}
 
 .status{
@@ -207,8 +189,38 @@ button:active{transform:translateY(1px)}
   max-height:160px;
 }
 
-/* small screens: stack inputs/buttons */
-@media (max-width: 420px){
+.top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.right{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.iconbtn{
+  width:42px;
+  height:42px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:rgba(0,0,0,.25);
+  color:rgba(232,238,252,.9);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  padding:0;
+}
+
+.iconbtn:active{transform:translateY(1px)}
+
+
+@media (max-width:420px){
   .row{grid-template-columns:1fr}
   .buttons{grid-template-columns:1fr}
   .top{flex-direction:column; align-items:flex-start}

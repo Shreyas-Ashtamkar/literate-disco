@@ -1,15 +1,19 @@
-// Uses geolib (UMD) exposed as global `geolib`
-// Docs: geolib.getGreatCircleBearing, geolib.getDistance
+// geolib is loaded via UMD and exposed as global `geolib`
+// We use:
+//   - geolib.getGreatCircleBearing({latitude,longitude}, {latitude,longitude})
+//   - geolib.getDistance({latitude,longitude}, {latitude,longitude})
 
-const LS_TARGET = "compass_target_v2";
+const LS_TARGET = "compass_target_v3";
 
 // DOM
 const tLat = document.getElementById("tLat");
 const tLon = document.getElementById("tLon");
+
 const saveBtn = document.getElementById("saveBtn");
 const useMyLocBtn = document.getElementById("useMyLocBtn");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
+const shareTopBtn = document.getElementById("shareTopBtn");
 
 const arrow = document.getElementById("arrow");
 const headingVal = document.getElementById("headingVal");
@@ -23,7 +27,7 @@ const permChip = document.getElementById("permChip");
 const locChip = document.getElementById("locChip");
 
 // State
-let target = loadTarget();     // {latitude, longitude} or null (geolib expects these keys)
+let target = loadTarget();     // {latitude, longitude} or null
 let watchId = null;
 let lastPos = null;            // {latitude, longitude}
 let lastHeading = null;        // 0..360
@@ -64,6 +68,14 @@ function setChip(el, state, text) {
   if (text) el.textContent = text;
 }
 
+function currentTargetFromInputs() {
+  const lat = Number(tLat.value.trim());
+  const lon = Number(tLon.value.trim());
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return { latitude: lat, longitude: lon };
+}
+
 // --- local storage ---
 function loadTarget() {
   try {
@@ -77,25 +89,116 @@ function loadTarget() {
   }
 }
 
-function saveTarget(lat, lon) {
+function saveTarget(lat, lon, alsoFillInputs = true) {
   target = { latitude: lat, longitude: lon };
   localStorage.setItem(LS_TARGET, JSON.stringify(target));
+  if (alsoFillInputs) {
+    tLat.value = String(lat);
+    tLon.value = String(lon);
+  }
   logStatus(`Saved target: ${lat}, ${lon}`);
   updateDisplay();
 }
 
-function setTargetUI() {
+function setTargetUIFromStored() {
   if (!target) return;
   tLat.value = String(target.latitude);
   tLon.value = String(target.longitude);
   logStatus(`Loaded target: ${target.latitude}, ${target.longitude}`);
 }
 
+// --- query params: read then clear ---
+function applyQueryParamsThenClear() {
+  const url = new URL(window.location.href);
+
+  // Accept lat/lon OR latitude/longitude
+  const latRaw = url.searchParams.get("lat") ?? url.searchParams.get("latitude");
+  const lonRaw = url.searchParams.get("lon") ?? url.searchParams.get("lng") ?? url.searchParams.get("longitude");
+
+  if (latRaw == null || lonRaw == null) return;
+
+  const lat = Number(latRaw);
+  const lon = Number(lonRaw);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    logStatus("Query params present but invalid. Ignored.");
+    // still clear them to avoid persistent junk
+    url.search = "";
+    window.history.replaceState({}, "", url.toString());
+    return;
+  }
+
+  // Save + fill inputs
+  saveTarget(lat, lon, true);
+  logStatus("Target loaded from URL params.");
+
+  // Clear query params without reloading
+  url.search = "";
+  window.history.replaceState({}, "", url.toString());
+  logStatus("Cleared URL query params.");
+}
+
+// --- share link ---
+function buildShareUrl() {
+  const t = currentTargetFromInputs() || target;
+  if (!t) return null;
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("lat", String(t.latitude));
+  url.searchParams.set("lon", String(t.longitude));
+  return url.toString();
+}
+
+async function shareLink() {
+  const url = buildShareUrl();
+  if (!url) {
+    logStatus("Set a target before sharing.");
+    return;
+  }
+
+  // Native share (mobile) if available
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: "Compass → Target",
+        text: "Open this to set the target automatically:",
+        url,
+      });
+      logStatus("Shared via native share sheet.");
+      return;
+    } catch (e) {
+      logStatus(`Share canceled/failed: ${e.message || String(e)}`);
+    }
+  }
+
+  // Fallback: copy
+  await copyToClipboard(url);
+  logStatus("Share not available; copied link instead.");
+}
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // iOS sometimes hates navigator.clipboard unless user-gesture + https, so fallback:
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.top = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }
+}
+
 // --- display ---
 function updateDisplay() {
   headingVal.textContent = fmtDeg(lastHeading);
 
-  if (!target || !lastPos) {
+  const maybeTarget = currentTargetFromInputs() || target;
+  if (!maybeTarget || !lastPos) {
     bearingVal.textContent = "—";
     deltaVal.textContent = "—";
     distVal.textContent = "—";
@@ -103,9 +206,8 @@ function updateDisplay() {
     return;
   }
 
-  // geolib outputs bearing in degrees (0..360)
-  const b = geolib.getGreatCircleBearing(lastPos, target);
-  const d = geolib.getDistance(lastPos, target);
+  const b = geolib.getGreatCircleBearing(lastPos, maybeTarget);
+  const d = geolib.getDistance(lastPos, maybeTarget);
 
   bearingVal.textContent = fmtDeg(b);
   distVal.textContent = fmtDist(d);
@@ -117,8 +219,6 @@ function updateDisplay() {
 
   const delta = signedDelta(lastHeading, b);
   deltaVal.textContent = `${delta.toFixed(1)}°`;
-
-  // rotate arrow by relative turn angle
   arrow.style.transform = `translate(-50%, -92%) rotate(${delta}deg)`;
 }
 
@@ -143,11 +243,7 @@ function startGeolocation() {
       setChip(locChip, "bad", "Location ✗");
       logStatus(`Geolocation error: ${err.message}`);
     },
-    {
-      enableHighAccuracy: true,
-      maximumAge: 500,
-      timeout: 15000,
-    }
+    { enableHighAccuracy: true, maximumAge: 500, timeout: 15000 }
   );
 
   logStatus("Geolocation watch started.");
@@ -167,7 +263,6 @@ async function requestOrientationPermissionIfNeeded() {
   const DOE = window.DeviceOrientationEvent;
   if (!DOE) return;
 
-  // iOS permission gate
   if (typeof DOE.requestPermission === "function") {
     const res = await DOE.requestPermission();
     if (res !== "granted") throw new Error("Device orientation permission denied.");
@@ -186,22 +281,18 @@ function startOrientation() {
   setChip(permChip, null, "Sensors …");
 
   orientationHandler = (event) => {
-    // iOS: webkitCompassHeading is true compass heading
     if (event.webkitCompassHeading !== undefined && event.webkitCompassHeading !== null) {
       lastHeading = norm360(event.webkitCompassHeading);
       setChip(permChip, "ok", "Sensors ✓");
       updateDisplay();
       return;
     }
-
-    // Android-ish: alpha (0..360). Often needs conversion.
     if (event.alpha !== null && event.alpha !== undefined) {
       lastHeading = norm360(360 - event.alpha);
       setChip(permChip, "ok", "Sensors ✓");
       updateDisplay();
       return;
     }
-
     lastHeading = null;
     setChip(permChip, "bad", "Sensors ✗");
     updateDisplay();
@@ -224,18 +315,12 @@ function stopOrientation() {
 
 // --- buttons ---
 saveBtn.addEventListener("click", () => {
-  const lat = Number(tLat.value.trim());
-  const lon = Number(tLon.value.trim());
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+  const t = currentTargetFromInputs();
+  if (!t) {
     logStatus("Invalid target lat/lon.");
     return;
   }
-  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-    logStatus("Target lat/lon out of range.");
-    return;
-  }
-  saveTarget(lat, lon);
+  saveTarget(t.latitude, t.longitude, true);
 });
 
 useMyLocBtn.addEventListener("click", () => {
@@ -248,9 +333,7 @@ useMyLocBtn.addEventListener("click", () => {
     (pos) => {
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
-      tLat.value = String(lat);
-      tLon.value = String(lon);
-      saveTarget(lat, lon);
+      saveTarget(lat, lon, true);
       setChip(locChip, "ok", "Location ✓");
     },
     (err) => {
@@ -279,11 +362,23 @@ stopBtn.addEventListener("click", () => {
   logStatus("Stopped.");
 });
 
+// Update display when user edits inputs
+[tLat, tLon].forEach((el) => el.addEventListener("input", updateDisplay));
+
+shareTopBtn.addEventListener("click", shareLink);
+
 // --- init ---
 (function init() {
   const isSecure = window.isSecureContext || location.hostname === "localhost";
   setChip(secureChip, isSecure ? "ok" : "bad", isSecure ? "HTTPS ✓" : "HTTPS ✗");
 
-  setTargetUI();
+  // 1) If URL has ?lat=..&lon=.., apply + save + clear params
+  applyQueryParamsThenClear();
+
+  // 2) If no query params were used, load stored target into inputs
+  if (!tLat.value && !tLon.value) {
+    setTargetUIFromStored();
+  }
+
   updateDisplay();
 })();
