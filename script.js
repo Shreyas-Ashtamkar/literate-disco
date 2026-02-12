@@ -61,11 +61,14 @@ function logStatus(msg) {
   statusEl.textContent = `[${ts}] ${msg}\n` + statusEl.textContent;
 }
 
-function setChip(el, state, text) {
+function setChip(el, state) {
   el.classList.remove("ok", "bad");
   if (state === "ok") el.classList.add("ok");
   if (state === "bad") el.classList.add("bad");
-  if (text) el.textContent = text;
+
+  const key = state || "idle";
+  const icon = el.dataset[key] || el.dataset.idle || "";
+  if (icon) el.textContent = icon;
 }
 
 function currentTargetFromInputs() {
@@ -140,19 +143,18 @@ function applyQueryParamsThenClear() {
 
 // --- share link ---
 function buildShareUrl() {
-  const t = currentTargetFromInputs() || target;
-  if (!t) return null;
+  if (!lastPos) return null;
 
   const url = new URL(window.location.href);
-  url.searchParams.set("lat", String(t.latitude));
-  url.searchParams.set("lon", String(t.longitude));
+  url.searchParams.set("lat", String(lastPos.latitude));
+  url.searchParams.set("lon", String(lastPos.longitude));
   return url.toString();
 }
 
 async function shareLink() {
   const url = buildShareUrl();
   if (!url) {
-    logStatus("Set a target before sharing.");
+    logStatus("Location not available yet. Start to share your location.");
     return;
   }
 
@@ -225,22 +227,22 @@ function updateDisplay() {
 // --- geolocation ---
 function startGeolocation() {
   if (!("geolocation" in navigator)) {
-    setChip(locChip, "bad", "Location ✗");
+    setChip(locChip, "bad");
     logStatus("Geolocation not supported.");
     return;
   }
   if (watchId != null) return;
 
-  setChip(locChip, null, "Location …");
+  setChip(locChip, "pending");
 
   watchId = navigator.geolocation.watchPosition(
     (pos) => {
       lastPos = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-      setChip(locChip, "ok", "Location ✓");
+      setChip(locChip, "ok");
       updateDisplay();
     },
     (err) => {
-      setChip(locChip, "bad", "Location ✗");
+      setChip(locChip, "bad");
       logStatus(`Geolocation error: ${err.message}`);
     },
     { enableHighAccuracy: true, maximumAge: 500, timeout: 15000 }
@@ -253,7 +255,7 @@ function stopGeolocation() {
   if (watchId != null) {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
-    setChip(locChip, null, "Location");
+    setChip(locChip, null);
     logStatus("Geolocation watch stopped.");
   }
 }
@@ -271,30 +273,30 @@ async function requestOrientationPermissionIfNeeded() {
 
 function startOrientation() {
   if (!("DeviceOrientationEvent" in window)) {
-    setChip(permChip, "bad", "Sensors ✗");
+    setChip(permChip, "bad");
     logStatus("DeviceOrientation not supported.");
     return;
   }
   if (orientationHandler) return;
 
   const evt = ("ondeviceorientationabsolute" in window) ? "deviceorientationabsolute" : "deviceorientation";
-  setChip(permChip, null, "Sensors …");
+  setChip(permChip, "pending");
 
   orientationHandler = (event) => {
     if (event.webkitCompassHeading !== undefined && event.webkitCompassHeading !== null) {
       lastHeading = norm360(event.webkitCompassHeading);
-      setChip(permChip, "ok", "Sensors ✓");
+      setChip(permChip, "ok");
       updateDisplay();
       return;
     }
     if (event.alpha !== null && event.alpha !== undefined) {
       lastHeading = norm360(360 - event.alpha);
-      setChip(permChip, "ok", "Sensors ✓");
+      setChip(permChip, "ok");
       updateDisplay();
       return;
     }
     lastHeading = null;
-    setChip(permChip, "bad", "Sensors ✗");
+    setChip(permChip, "bad");
     updateDisplay();
   };
 
@@ -308,7 +310,7 @@ function stopOrientation() {
   window.removeEventListener(evt, orientationHandler, true);
   orientationHandler = null;
   lastHeading = null;
-  setChip(permChip, null, "Sensors");
+  setChip(permChip, null);
   logStatus("Orientation listener stopped.");
   updateDisplay();
 }
@@ -328,16 +330,16 @@ useMyLocBtn.addEventListener("click", () => {
     logStatus("Geolocation not supported.");
     return;
   }
-  setChip(locChip, null, "Location …");
+  setChip(locChip, "pending");
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
       saveTarget(lat, lon, true);
-      setChip(locChip, "ok", "Location ✓");
+      setChip(locChip, "ok");
     },
     (err) => {
-      setChip(locChip, "bad", "Location ✗");
+      setChip(locChip, "bad");
       logStatus(`Geolocation error: ${err.message}`);
     },
     { enableHighAccuracy: true, timeout: 15000 }
@@ -351,7 +353,7 @@ startBtn.addEventListener("click", async () => {
     startGeolocation();
     logStatus("Started.");
   } catch (e) {
-    setChip(permChip, "bad", "Sensors ✗");
+    setChip(permChip, "bad");
     logStatus(`Start failed: ${e.message || String(e)}`);
   }
 });
@@ -370,7 +372,7 @@ shareTopBtn.addEventListener("click", shareLink);
 // --- init ---
 (function init() {
   const isSecure = window.isSecureContext || location.hostname === "localhost";
-  setChip(secureChip, isSecure ? "ok" : "bad", isSecure ? "HTTPS ✓" : "HTTPS ✗");
+  setChip(secureChip, isSecure ? "ok" : "bad");
 
   // 1) If URL has ?lat=..&lon=.., apply + save + clear params
   applyQueryParamsThenClear();

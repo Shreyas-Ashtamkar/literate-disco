@@ -12,50 +12,55 @@
   <main class="wrap">
     <header class="top">
       <div class="title">
-        <h1>Compass → Target</h1>
+        <span class="title-ico" aria-hidden="true">🧭</span>
+        <h1>Target</h1>
       </div>
 
       <div class="right">
         <div class="chips">
-          <span class="chip" id="secureChip">HTTPS?</span>
-          <span class="chip" id="permChip">Sensors</span>
-          <span class="chip" id="locChip">Location</span>
+          <span class="chip" id="secureChip" title="HTTPS" aria-label="HTTPS" data-idle="🔒" data-ok="🔒" data-bad="🔓" data-pending="⏳">🔒</span>
+          <span class="chip" id="permChip" title="Sensors" aria-label="Sensors" data-idle="🛰️" data-ok="🛰️" data-bad="🛰️⛔" data-pending="⏳">🛰️</span>
+          <span class="chip" id="locChip" title="Location" aria-label="Location" data-idle="📍" data-ok="📍" data-bad="📍⛔" data-pending="⏳">📍</span>
         </div>
-
-        <button id="shareTopBtn" class="iconbtn" title="Share target link" aria-label="Share target link">
-          <!-- simple share icon -->
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-            <path fill="currentColor"
-              d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.02-4.11A2.99 2.99 0 0 0 18 7.91a3 3 0 1 0-2.83-4 3 3 0 0 0 .17 2.06L8.32 10.09A3 3 0 1 0 6 15a2.99 2.99 0 0 0 2.32-1.09l7.02 4.11c-.11.31-.17.65-.17 1a3 3 0 1 0 3-2.94z" />
-          </svg>
-        </button>
       </div>
     </header>
 
     <section class="card">
       <div class="row">
         <label>
-          Target Lat
-          <input id="tLat" inputmode="decimal" autocomplete="off" placeholder="17.3850" />
+          <span class="label-ico" aria-hidden="true">φ</span>
+          <span class="sr-only">Latitude</span>
+          <input id="tLat" inputmode="decimal" autocomplete="off" placeholder="Latitude" />
         </label>
         <label>
-          Target Lon
-          <input id="tLon" inputmode="decimal" autocomplete="off" placeholder="78.4867" />
+          <span class="label-ico" aria-hidden="true">λ</span>
+          <span class="sr-only">Longitude</span>
+          <input id="tLon" inputmode="decimal" autocomplete="off" placeholder="Longitude" />
         </label>
       </div>
 
-      <div class="row buttons">
-        <button id="saveBtn">Save target</button>
-        <button id="useMyLocBtn">Use my location</button>
-      </div>
-
-      <div class="row buttons">
-        <button id="startBtn" class="primary">Start</button>
-        <button id="stopBtn">Stop</button>
+      <div class="actions">
+        <button id="startBtn" class="primary">
+          <span class="btn-ico" aria-hidden="true">▶️</span>
+          <span class="btn-text">Start</span>
+        </button>
+        <button id="stopBtn">
+          <span class="btn-ico" aria-hidden="true">⏹</span>
+          <span class="btn-text">Stop</span>
+        </button>
+        <button id="useMyLocBtn" class="icon-only" aria-label="Use my location" title="Use my location">
+          <span class="btn-ico" aria-hidden="true">📍</span>
+        </button>
+        <button id="saveBtn" class="icon-only" aria-label="Save target" title="Save target">
+          <span class="btn-ico" aria-hidden="true">💾</span>
+        </button>
+        <button id="shareTopBtn" class="icon-only" aria-label="Share target link" title="Share target link">
+          <span class="btn-ico" aria-hidden="true">🔗</span>
+        </button>
       </div>
 
       <p class="hint">
-        Tip: open on phone browser. Needs HTTPS (localhost is fine). iOS needs permission on Start.
+        Tip: 📱 HTTPS required (localhost ok). iOS asks permission on Start.
       </p>
     </section>
 
@@ -71,10 +76,26 @@
       </div>
 
       <div class="stats">
-        <div><span>Heading</span><b id="headingVal">—</b></div>
-        <div><span>Bearing</span><b id="bearingVal">—</b></div>
-        <div><span>Turn</span><b id="deltaVal">—</b></div>
-        <div><span>Distance</span><b id="distVal">—</b></div>
+        <div>
+          <span class="stat-ico" aria-hidden="true">🧭</span>
+          <span class="sr-only">Heading</span>
+          <b id="headingVal">—</b>
+        </div>
+        <div>
+          <span class="stat-ico" aria-hidden="true">🎯</span>
+          <span class="sr-only">Bearing</span>
+          <b id="bearingVal">—</b>
+        </div>
+        <div>
+          <span class="stat-ico" aria-hidden="true">↻</span>
+          <span class="sr-only">Turn</span>
+          <b id="deltaVal">—</b>
+        </div>
+        <div>
+          <span class="stat-ico" aria-hidden="true">📏</span>
+          <span class="sr-only">Distance</span>
+          <b id="distVal">—</b>
+        </div>
       </div>
 
       <pre id="status" class="status">Idle.</pre>

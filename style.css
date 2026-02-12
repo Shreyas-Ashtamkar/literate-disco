@@ -19,29 +19,41 @@ body{
 }
 
 .wrap{
-  max-width:720px;
+  max-width:520px;
   margin:0 auto;
   padding:16px;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  padding-bottom: calc(18px + env(safe-area-inset-bottom));
   display:grid;
   gap:12px;
 }
 
 .top{
   display:flex;
-  align-items:flex-end;
+  align-items:center;
   justify-content:space-between;
   gap:12px;
 }
 
-h1{margin:6px 0 0;font-size:20px;letter-spacing:.2px}
+.title{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.title-ico{
+  font-size:22px;
+  filter:drop-shadow(0 6px 10px rgba(0,0,0,.25));
+}
+
+h1{margin:6px 0 0;font-size:20px;letter-spacing:.4px}
 
 .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .chip{
-  font-size:12px;color:var(--muted);
+  font-size:14px;color:var(--muted);
   border:1px solid var(--line);
   border-radius:999px;
-  padding:6px 10px;
+  width:34px;height:34px;
+  display:grid;place-items:center;
   background:rgba(0,0,0,.25);
 }
 .chip.ok{border-color:rgba(87,227,137,.35); background:var(--ok); color:rgba(232,238,252,.9)}
@@ -56,12 +68,16 @@ h1{margin:6px 0 0;font-size:20px;letter-spacing:.2px}
 
 .row{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:1fr;
   gap:10px;
   margin-bottom:10px;
 }
 
-label{display:grid;gap:6px;font-size:12px;color:var(--muted)}
+label{display:grid;gap:8px;font-size:12px;color:var(--muted)}
+.label-ico{
+  font-size:14px;
+  color:rgba(232,238,252,.75);
+}
 input{
   width:100%;
   padding:12px 12px;
@@ -73,7 +89,11 @@ input{
   font-size:16px; /* prevent iOS zoom */
 }
 
-.buttons{grid-template-columns:1fr 1fr}
+.actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
 
 button{
   padding:12px 12px;
@@ -83,6 +103,10 @@ button{
   color:var(--text);
   cursor:pointer;
   font-size:16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
 }
 
 button.primary{
@@ -106,8 +130,8 @@ code{
 }
 
 .compass{
-  width:min(320px, 80vw);
-  height:min(320px, 80vw);
+  width:min(320px, 72vw);
+  height:min(320px, 72vw);
   margin:10px auto 12px;
   position:relative;
 }
@@ -168,7 +192,7 @@ code{
 
 .stats div{
   display:flex;
-  align-items:baseline;
+  align-items:center;
   justify-content:space-between;
   gap:10px;
   border:1px solid rgba(255,255,255,.06);
@@ -177,6 +201,10 @@ code{
   background:rgba(0,0,0,.18);
 }
 .stats b{color:var(--text)}
+
+.stat-ico{
+  font-size:16px;
+}
 
 .status{
   margin:12px 0 0;
@@ -189,13 +217,6 @@ code{
   max-height:160px;
 }
 
-.top{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-}
-
 .right{
   display:flex;
   align-items:center;
@@ -204,25 +225,24 @@ code{
   justify-content:flex-end;
 }
 
-.iconbtn{
-  width:42px;
-  height:42px;
-  border-radius:12px;
-  border:1px solid var(--line);
-  background:rgba(0,0,0,.25);
-  color:rgba(232,238,252,.9);
-  display:grid;
-  place-items:center;
-  cursor:pointer;
-  padding:0;
+.btn-ico{font-size:16px}
+.btn-text{letter-spacing:.2px}
+
+.icon-only{
+  padding:12px;
+}
+.icon-only .btn-text{display:none}
+
+.sr-only{
+  position:absolute;
+  width:1px;height:1px;
+  padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);
+  white-space:nowrap;border:0;
 }
 
-.iconbtn:active{transform:translateY(1px)}
-
-
-@media (max-width:420px){
-  .row{grid-template-columns:1fr}
-  .buttons{grid-template-columns:1fr}
-  .top{flex-direction:column; align-items:flex-start}
-  .chips{justify-content:flex-start}
+@media (min-width:520px){
+  .row{grid-template-columns:1fr 1fr}
+  .actions{grid-template-columns:1fr 1fr 1fr}
+  .chips{justify-content:flex-end}
 }
