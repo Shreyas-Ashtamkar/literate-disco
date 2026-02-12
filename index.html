@@ -1,11 +1,63 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Literate Disco</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>P2P Compass Pointer</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    This is a literate disco!!  First commit for page hosting before content. 
+  <main class="wrap">
+    <h1>Compass → Target</h1>
+
+    <section class="card">
+      <div class="row">
+        <label>
+          Target Lat
+          <input id="tLat" inputmode="decimal" placeholder="e.g. 17.3850" />
+        </label>
+        <label>
+          Target Lon
+          <input id="tLon" inputmode="decimal" placeholder="e.g. 78.4867" />
+        </label>
+      </div>
+
+      <div class="row buttons">
+        <button id="saveBtn">Save target</button>
+        <button id="useMyLocBtn">Use my current location as target</button>
+      </div>
+
+      <div class="row buttons">
+        <button id="startBtn" class="primary">Start sensors</button>
+        <button id="stopBtn">Stop</button>
+      </div>
+
+      <p class="hint">
+        Works best on mobile Chrome/Edge/Safari. Needs HTTPS (localhost is fine).
+      </p>
+    </section>
+
+    <section class="card">
+      <div class="compass">
+        <div class="ring"></div>
+        <div id="arrow" class="arrow"></div>
+        <div class="label north">N</div>
+        <div class="label east">E</div>
+        <div class="label south">S</div>
+        <div class="label west">W</div>
+      </div>
+
+      <div class="stats">
+        <div><span>Heading:</span> <b id="headingVal">—</b></div>
+        <div><span>Target bearing:</span> <b id="bearingVal">—</b></div>
+        <div><span>Turn:</span> <b id="deltaVal">—</b></div>
+        <div><span>Distance:</span> <b id="distVal">—</b></div>
+      </div>
+
+      <pre id="status" class="status">Idle.</pre>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
 </body>
 </html>
