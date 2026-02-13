@@ -9,11 +9,12 @@ const LS_TARGET = "compass_target_v3";
 const tLat = document.getElementById("tLat");
 const tLon = document.getElementById("tLon");
 
-const saveBtn = document.getElementById("saveBtn");
-const useMyLocBtn = document.getElementById("useMyLocBtn");
-const startBtn = document.getElementById("startBtn");
-const stopBtn = document.getElementById("stopBtn");
+const trackBtn = document.getElementById("trackBtn");
 const shareTopBtn = document.getElementById("shareTopBtn");
+const editPartnerBtn = document.getElementById("editPartnerBtn");
+const partnerModal = document.getElementById("partnerModal");
+const closePartnerModal = document.getElementById("closePartnerModal");
+const savePartnerBtn = document.getElementById("savePartnerBtn");
 
 const arrow = document.getElementById("arrow");
 const headingVal = document.getElementById("headingVal");
@@ -21,6 +22,9 @@ const bearingVal = document.getElementById("bearingVal");
 const deltaVal = document.getElementById("deltaVal");
 const distVal = document.getElementById("distVal");
 const statusEl = document.getElementById("status");
+const myCoordsVal = document.getElementById("myCoordsVal");
+const partnerCoordsVal = document.getElementById("partnerCoordsVal");
+const toastEl = document.getElementById("toast");
 
 const secureChip = document.getElementById("secureChip");
 const permChip = document.getElementById("permChip");
@@ -32,6 +36,8 @@ let watchId = null;
 let lastPos = null;            // {latitude, longitude}
 let lastHeading = null;        // 0..360
 let orientationHandler = null;
+let toastTimer = null;
+let isTracking = false;
 
 // --- helpers ---
 const norm360 = (deg) => {
@@ -56,9 +62,27 @@ function fmtDist(meters) {
   return `${(meters / 1000).toFixed(2)} km`;
 }
 
+function fmtCoords(pos) {
+  if (!pos) return "—";
+  const lat = Number(pos.latitude);
+  const lon = Number(pos.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return "—";
+  return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+}
+
 function logStatus(msg) {
   const ts = new Date().toLocaleTimeString();
   statusEl.textContent = `[${ts}] ${msg}\n` + statusEl.textContent;
+}
+
+function showToast(message) {
+  if (!toastEl) return;
+  toastEl.textContent = message;
+  toastEl.classList.add("show");
+  if (toastTimer) window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => {
+    toastEl.classList.remove("show");
+  }, 1600);
 }
 
 function setChip(el, state) {
@@ -68,7 +92,7 @@ function setChip(el, state) {
 
   const key = state || "idle";
   const icon = el.dataset[key] || el.dataset.idle || "";
-  if (icon) el.textContent = icon;
+  if (icon) el.innerHTML = `<i class="${icon}" aria-hidden="true"></i>`;
 }
 
 function currentTargetFromInputs() {
@@ -195,11 +219,30 @@ async function copyToClipboard(text) {
   }
 }
 
+async function copyMyCoords() {
+  if (!lastPos) {
+    logStatus("Location not available yet. Start to get coordinates.");
+    return;
+  }
+
+  const coordsText = fmtCoords(lastPos);
+  if (coordsText === "—") {
+    logStatus("Coordinates invalid. Try again.");
+    return;
+  }
+
+  await copyToClipboard(coordsText);
+  showToast("Copied coordinates");
+  logStatus("Copied my coordinates to clipboard.");
+}
+
 // --- display ---
 function updateDisplay() {
   headingVal.textContent = fmtDeg(lastHeading);
+  myCoordsVal.textContent = fmtCoords(lastPos);
 
   const maybeTarget = currentTargetFromInputs() || target;
+  partnerCoordsVal.textContent = fmtCoords(maybeTarget);
   if (!maybeTarget || !lastPos) {
     bearingVal.textContent = "—";
     deltaVal.textContent = "—";
@@ -315,42 +358,31 @@ function stopOrientation() {
   updateDisplay();
 }
 
+function setTrackingUi(active) {
+  if (!trackBtn) return;
+  isTracking = active;
+  trackBtn.classList.toggle("ghost", active);
+  trackBtn.classList.toggle("primary", !active);
+  trackBtn.innerHTML = active
+    ? "<i class=\"fa-solid fa-stop btn-ico\" aria-hidden=\"true\"></i><span class=\"btn-text\">Stop</span>"
+    : "<i class=\"fa-solid fa-location-arrow btn-ico\" aria-hidden=\"true\"></i><span class=\"btn-text\">Track</span>";
+}
+
 // --- buttons ---
-saveBtn.addEventListener("click", () => {
-  const t = currentTargetFromInputs();
-  if (!t) {
-    logStatus("Invalid target lat/lon.");
+trackBtn.addEventListener("click", async () => {
+  if (isTracking) {
+    stopOrientation();
+    stopGeolocation();
+    setTrackingUi(false);
+    logStatus("Stopped.");
     return;
   }
-  saveTarget(t.latitude, t.longitude, true);
-});
 
-useMyLocBtn.addEventListener("click", () => {
-  if (!("geolocation" in navigator)) {
-    logStatus("Geolocation not supported.");
-    return;
-  }
-  setChip(locChip, "pending");
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-      saveTarget(lat, lon, true);
-      setChip(locChip, "ok");
-    },
-    (err) => {
-      setChip(locChip, "bad");
-      logStatus(`Geolocation error: ${err.message}`);
-    },
-    { enableHighAccuracy: true, timeout: 15000 }
-  );
-});
-
-startBtn.addEventListener("click", async () => {
   try {
     await requestOrientationPermissionIfNeeded();
     startOrientation();
     startGeolocation();
+    setTrackingUi(true);
     logStatus("Started.");
   } catch (e) {
     setChip(permChip, "bad");
@@ -358,16 +390,54 @@ startBtn.addEventListener("click", async () => {
   }
 });
 
-stopBtn.addEventListener("click", () => {
-  stopOrientation();
-  stopGeolocation();
-  logStatus("Stopped.");
-});
-
 // Update display when user edits inputs
 [tLat, tLon].forEach((el) => el.addEventListener("input", updateDisplay));
 
+// --- modal controls ---
+function openPartnerModal() {
+  if (partnerModal) partnerModal.classList.add("show");
+}
+
+function closePartnerModalFn() {
+  if (partnerModal) partnerModal.classList.remove("show");
+}
+
+editPartnerBtn.addEventListener("click", openPartnerModal);
+closePartnerModal.addEventListener("click", closePartnerModalFn);
+partnerModal.addEventListener("click", (e) => {
+  if (e.target === partnerModal) closePartnerModalFn();
+});
+
+savePartnerBtn.addEventListener("click", () => {
+  const t = currentTargetFromInputs();
+  if (!t) {
+    logStatus("Invalid target lat/lon.");
+    return;
+  }
+  saveTarget(t.latitude, t.longitude, true);
+  closePartnerModalFn();
+});
+
+// --- log visibility ---
+permChip.addEventListener("click", () => {
+  const logDrop = document.querySelector(".log-drop");
+  if (logDrop) logDrop.toggleAttribute("open");
+});
+
+locChip.addEventListener("click", () => {
+  const logDrop = document.querySelector(".log-drop");
+  if (logDrop) logDrop.toggleAttribute("open");
+});
+
 shareTopBtn.addEventListener("click", shareLink);
+
+myCoordsVal.addEventListener("click", copyMyCoords);
+myCoordsVal.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    copyMyCoords();
+  }
+});
 
 // --- init ---
 (function init() {
@@ -383,4 +453,5 @@ shareTopBtn.addEventListener("click", shareLink);
   }
 
   updateDisplay();
+  setTrackingUi(false);
 })();
