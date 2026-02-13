@@ -12,6 +12,7 @@ const tLon = document.getElementById("tLon");
 const findBtn = document.getElementById("findBtn");
 const shareTopBtn = document.getElementById("shareTopBtn");
 const editPartnerBtn = document.getElementById("editPartnerBtn");
+const refreshMyLocBtn = document.getElementById("refreshMyLocBtn");
 const partnerModal = document.getElementById("partnerModal");
 const closePartnerModal = document.getElementById("closePartnerModal");
 const savePartnerBtn = document.getElementById("savePartnerBtn");
@@ -176,9 +177,29 @@ function buildShareUrl() {
 }
 
 async function shareLink() {
+  if (!lastPos) {
+    logStatus("Fetching location...");
+    await new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          lastPos = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+          setChip(locChip, "ok");
+          updateDisplay();
+          resolve();
+        },
+        (err) => {
+          setChip(locChip, "bad");
+          logStatus(`Location fetch failed: ${err.message}`);
+          resolve();
+        },
+        { enableHighAccuracy: true, timeout: 15000 }
+      );
+    });
+  }
+
   const url = buildShareUrl();
   if (!url) {
-    logStatus("Location not available yet. Start to share your location.");
+    logStatus("Location not available. Cannot share.");
     return;
   }
 
@@ -264,7 +285,8 @@ function updateDisplay() {
 
   const delta = signedDelta(lastHeading, b);
   deltaVal.textContent = `${delta.toFixed(1)}°`;
-  arrow.style.transform = `translate(-50%, -92%) rotate(${delta}deg)`;
+  const angle = Math.round(delta * 100) / 100;
+  arrow.style.transform = 'translate(-50%, -92%) rotate(' + angle + 'deg)';
 }
 
 // --- geolocation ---
@@ -292,6 +314,30 @@ function startGeolocation() {
   );
 
   logStatus("Geolocation watch started.");
+}
+
+function getCurrentPositionOnce() {
+  if (!("geolocation" in navigator)) {
+    setChip(locChip, "bad");
+    logStatus("Geolocation not supported.");
+    return;
+  }
+
+  setChip(locChip, "pending");
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      lastPos = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      setChip(locChip, "ok");
+      updateDisplay();
+      logStatus("Location updated.");
+    },
+    (err) => {
+      setChip(locChip, "bad");
+      logStatus(`Location fetch failed: ${err.message}`);
+    },
+    { enableHighAccuracy: true, timeout: 15000 }
+  );
 }
 
 function stopGeolocation() {
@@ -431,6 +477,8 @@ locChip.addEventListener("click", () => {
 
 shareTopBtn.addEventListener("click", shareLink);
 
+refreshMyLocBtn.addEventListener("click", getCurrentPositionOnce);
+
 myCoordsVal.addEventListener("click", copyMyCoords);
 myCoordsVal.addEventListener("keydown", (event) => {
   if (event.key === "Enter" || event.key === " ") {
@@ -444,10 +492,13 @@ myCoordsVal.addEventListener("keydown", (event) => {
   const isSecure = window.isSecureContext || location.hostname === "localhost";
   setChip(secureChip, isSecure ? "ok" : "bad");
 
-  // 1) If URL has ?lat=..&lon=.., apply + save + clear params
+  // 1) Fetch location once on page load
+  getCurrentPositionOnce();
+
+  // 2) If URL has ?lat=..&lon=.., apply + save + clear params
   applyQueryParamsThenClear();
 
-  // 2) If no query params were used, load stored target into inputs
+  // 3) If no query params were used, load stored target into inputs
   if (!tLat.value && !tLon.value) {
     setTargetUIFromStored();
   }

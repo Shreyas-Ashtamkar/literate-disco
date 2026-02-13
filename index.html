@@ -44,16 +44,6 @@
         </div>
       </div>
     </header>
-<!-- 
-    <section class="hero">
-      <div class="hero-card d-flex align-items-center gap-3">
-        <div class="hero-icon" aria-hidden="true"><i class="fa-solid fa-compass"></i></div>
-        <div class="hero-copy">
-          <div class="hero-title">Always → You</div>
-          <div class="hero-sub">Tap <i class="fa-solid fa-play" aria-hidden="true"></i> to begin</div>
-        </div>
-      </div>
-    </section> -->
 
     <section class="card controls">
       <details class="coords-drop mb-2">
@@ -71,7 +61,10 @@
                 <i class="fa-solid fa-user-location stat-ico" aria-hidden="true"></i>
                 <span class="coord-label">My coordinates</span>
               </span>
-              <b id="myCoordsVal" class="coords-clickable" role="button" tabindex="0" title="Copy my coordinates" aria-label="Copy my coordinates">—</b>
+              <div class="d-flex gap-2 align-items-center">
+                <b id="myCoordsVal" class="coords-clickable" role="button" tabindex="0" title="Copy my coordinates" aria-label="Copy my coordinates">—</b>
+                <button id="refreshMyLocBtn" class="edit-partner-btn" aria-label="Refresh my location" title="Refresh my location"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></button>
+              </div>
             </div>
           </div>
           <div class="col-12 col-sm-6">
