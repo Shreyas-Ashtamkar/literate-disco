@@ -272,8 +272,17 @@ function updateDisplay() {
     return;
   }
 
-  const b = geolib.getGreatCircleBearing(lastPos, maybeTarget);
-  const d = geolib.getDistance(lastPos, maybeTarget);
+  let b, d;
+  try {
+    b = geolib.getGreatCircleBearing(lastPos, maybeTarget);
+    d = geolib.getDistance(lastPos, maybeTarget);
+  } catch (e) {
+    logStatus(`Error calculating bearing/distance: ${e.message}`);
+    bearingVal.textContent = "—";
+    distVal.textContent = "—";
+    deltaVal.textContent = "—";
+    return;
+  }
 
   bearingVal.textContent = fmtDeg(b);
   distVal.textContent = fmtDist(d);
@@ -389,14 +398,14 @@ function startOrientation() {
     updateDisplay();
   };
 
-  window.addEventListener(evt, orientationHandler, true);
+  window.addEventListener(evt, orientationHandler);
   logStatus(`Orientation listener started (${evt}).`);
 }
 
 function stopOrientation() {
   if (!orientationHandler) return;
   const evt = ("ondeviceorientationabsolute" in window) ? "deviceorientationabsolute" : "deviceorientation";
-  window.removeEventListener(evt, orientationHandler, true);
+  window.removeEventListener(evt, orientationHandler);
   orientationHandler = null;
   lastHeading = null;
   setChip(permChip, null);
@@ -435,9 +444,6 @@ findBtn.addEventListener("click", async () => {
     logStatus(`Start failed: ${e.message || String(e)}`);
   }
 });
-
-// Update display when user edits inputs
-[tLat, tLon].forEach((el) => el.addEventListener("input", updateDisplay));
 
 // --- modal controls ---
 function openPartnerModal() {
@@ -491,6 +497,9 @@ myCoordsVal.addEventListener("keydown", (event) => {
 (function init() {
   const isSecure = window.isSecureContext || location.hostname === "localhost";
   setChip(secureChip, isSecure ? "ok" : "bad");
+
+  // Update display when user edits inputs
+  [tLat, tLon].forEach((el) => el.addEventListener("input", updateDisplay));
 
   // 1) Fetch location once on page load
   getCurrentPositionOnce();
