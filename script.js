@@ -272,6 +272,14 @@ function updateDisplay() {
     return;
   }
 
+  // Check if geolib is available
+  if (typeof geolib === 'undefined' || !geolib.getGreatCircleBearing || !geolib.getDistance) {
+    bearingVal.textContent = "—";
+    distVal.textContent = "—";
+    deltaVal.textContent = "—";
+    return;
+  }
+
   let b, d;
   try {
     b = geolib.getGreatCircleBearing(lastPos, maybeTarget);
@@ -497,6 +505,14 @@ myCoordsVal.addEventListener("keydown", (event) => {
 (function init() {
   const isSecure = window.isSecureContext || location.hostname === "localhost";
   setChip(secureChip, isSecure ? "ok" : "bad");
+
+  // Check if geolib loaded
+  if (typeof geolib === 'undefined') {
+    logStatus("ERROR: geolib library failed to load. Please refresh the page.");
+    console.error("geolib is not defined. Check if the script is loading correctly.");
+  } else {
+    logStatus("geolib library loaded successfully.");
+  }
 
   // Update display when user edits inputs
   [tLat, tLon].forEach((el) => el.addEventListener("input", updateDisplay));
