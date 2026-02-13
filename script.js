@@ -9,7 +9,7 @@ const LS_TARGET = "compass_target_v3";
 const tLat = document.getElementById("tLat");
 const tLon = document.getElementById("tLon");
 
-const trackBtn = document.getElementById("trackBtn");
+const findBtn = document.getElementById("findBtn");
 const shareTopBtn = document.getElementById("shareTopBtn");
 const editPartnerBtn = document.getElementById("editPartnerBtn");
 const partnerModal = document.getElementById("partnerModal");
@@ -37,7 +37,7 @@ let lastPos = null;            // {latitude, longitude}
 let lastHeading = null;        // 0..360
 let orientationHandler = null;
 let toastTimer = null;
-let isTracking = false;
+let isFinding = false;
 
 // --- helpers ---
 const norm360 = (deg) => {
@@ -358,22 +358,22 @@ function stopOrientation() {
   updateDisplay();
 }
 
-function setTrackingUi(active) {
-  if (!trackBtn) return;
-  isTracking = active;
-  trackBtn.classList.toggle("ghost", active);
-  trackBtn.classList.toggle("primary", !active);
-  trackBtn.innerHTML = active
+function setFindingUi(active) {
+  if (!findBtn) return;
+  isFinding = active;
+  findBtn.classList.toggle("ghost", active);
+  findBtn.classList.toggle("primary", !active);
+  findBtn.innerHTML = active
     ? "<i class=\"fa-solid fa-stop btn-ico\" aria-hidden=\"true\"></i><span class=\"btn-text\">Stop</span>"
-    : "<i class=\"fa-solid fa-location-arrow btn-ico\" aria-hidden=\"true\"></i><span class=\"btn-text\">Track</span>";
+    : "<i class=\"fa-solid fa-location-arrow btn-ico\" aria-hidden=\"true\"></i><span class=\"btn-text\">Find</span>";
 }
 
 // --- buttons ---
-trackBtn.addEventListener("click", async () => {
-  if (isTracking) {
+findBtn.addEventListener("click", async () => {
+  if (isFinding) {
     stopOrientation();
     stopGeolocation();
-    setTrackingUi(false);
+    setFindingUi(false);
     logStatus("Stopped.");
     return;
   }
@@ -382,7 +382,7 @@ trackBtn.addEventListener("click", async () => {
     await requestOrientationPermissionIfNeeded();
     startOrientation();
     startGeolocation();
-    setTrackingUi(true);
+    setFindingUi(true);
     logStatus("Started.");
   } catch (e) {
     setChip(permChip, "bad");
@@ -453,5 +453,5 @@ myCoordsVal.addEventListener("keydown", (event) => {
   }
 
   updateDisplay();
-  setTrackingUi(false);
+  setFindingUi(false);
 })();
