@@ -399,12 +399,17 @@ button:active{transform:translateY(1px)}
 
 .coords-clickable{
   cursor:pointer;
+  color:var(--text);
 }
 
 .coords-clickable:focus-visible{
   outline:2px solid rgba(255,179,199,.7);
   outline-offset:4px;
   border-radius:6px;
+}
+
+.coords b{
+  color:var(--text);
 }
 
 .coord-label{
