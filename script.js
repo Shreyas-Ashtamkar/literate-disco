@@ -4,6 +4,8 @@
 //   - geolib.getDistance({latitude,longitude}, {latitude,longitude})
 
 const LS_TARGET = "compass_target_v3";
+const LS_PEER_ID = "compass_peer_id";
+const LS_SESSION_ID = "compass_session_id";
 
 // DOM
 const tLat = document.getElementById("tLat");
@@ -34,11 +36,25 @@ const locChip = document.getElementById("locChip");
 // State
 let target = loadTarget();     // {latitude, longitude} or null
 let watchId = null;
+let heartbeatInterval = null;
 let lastPos = null;            // {latitude, longitude}
 let lastHeading = null;        // 0..360
 let orientationHandler = null;
 let toastTimer = null;
 let isFinding = false;
+
+// Peer-to-peer state
+let peer = null;
+let peerConnection = null;
+let myPeerId = null;
+let remotePeerId = null;
+let lastSyncTime = 0;
+const SYNC_INTERVAL = 1000;    // Send coordinates every 1 second
+
+// Connection retry state
+let connectionRetryCount = 0;
+const MAX_RETRIES = 10;
+let connectionRetryTimer = null;
 
 // --- helpers ---
 const norm360 = (deg) => {
@@ -139,67 +155,51 @@ function setTargetUIFromStored() {
 function applyQueryParamsThenClear() {
   const url = new URL(window.location.href);
 
-  // Accept lat/lon OR latitude/longitude
-  const latRaw = url.searchParams.get("lat") ?? url.searchParams.get("latitude");
-  const lonRaw = url.searchParams.get("lon") ?? url.searchParams.get("lng") ?? url.searchParams.get("longitude");
+  // Check for peer ID in query params
+  const peerIdParam = url.searchParams.get("peer");
 
-  if (latRaw == null || lonRaw == null) return;
-
-  const lat = Number(latRaw);
-  const lon = Number(lonRaw);
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-    logStatus("Query params present but invalid. Ignored.");
-    // still clear them to avoid persistent junk
-    url.search = "";
-    window.history.replaceState({}, "", url.toString());
-    return;
+  if (peerIdParam) {
+    // Initialize our peer and connect to the shared peer
+    if (!peer) {
+      initializePeer();
+    }
+    // Give peer server time to initialize (2 seconds)
+    setTimeout(() => {
+      connectToPeer(peerIdParam);
+      logStatus(`Attempting to connect to peer from link: ${peerIdParam.substring(0, 20)}...`);
+    }, 2000);
   }
-
-  // Save + fill inputs
-  saveTarget(lat, lon, true);
-  logStatus("Target loaded from URL params.");
 
   // Clear query params without reloading
   url.search = "";
   window.history.replaceState({}, "", url.toString());
-  logStatus("Cleared URL query params.");
 }
 
 // --- share link ---
 function buildShareUrl() {
-  if (!lastPos) return null;
+  if (!myPeerId) {
+    initializePeer();
+  }
 
   const url = new URL(window.location.href);
-  url.searchParams.set("lat", String(lastPos.latitude));
-  url.searchParams.set("lon", String(lastPos.longitude));
+  url.searchParams.set("peer", myPeerId);
+  // Remove any old coordinate params
+  url.searchParams.delete("lat");
+  url.searchParams.delete("lon");
+  url.searchParams.delete("latitude");
+  url.searchParams.delete("longitude");
+  url.searchParams.delete("lng");
   return url.toString();
 }
 
 async function shareLink() {
-  if (!lastPos) {
-    logStatus("Fetching location...");
-    await new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          lastPos = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-          setChip(locChip, "ok");
-          updateDisplay();
-          resolve();
-        },
-        (err) => {
-          setChip(locChip, "bad");
-          logStatus(`Location fetch failed: ${err.message}`);
-          resolve();
-        },
-        { enableHighAccuracy: true, timeout: 15000 }
-      );
-    });
+  if (!myPeerId) {
+    initializePeer();
   }
 
   const url = buildShareUrl();
   if (!url) {
-    logStatus("Location not available. Cannot share.");
+    logStatus("Peer ID not available. Cannot share.");
     return;
   }
 
@@ -207,11 +207,11 @@ async function shareLink() {
   if (navigator.share) {
     try {
       await navigator.share({
-        title: "Compass → Target",
-        text: "Open this to set the target automatically:",
+        title: "Find You - Compass",
+        text: "Open this link to connect and share real-time location:",
         url,
       });
-      logStatus("Shared via native share sheet.");
+      logStatus("Shared peer link via native share sheet.");
       return;
     } catch (e) {
       logStatus(`Share canceled/failed: ${e.message || String(e)}`);
@@ -220,6 +220,7 @@ async function shareLink() {
 
   // Fallback: copy
   await copyToClipboard(url);
+  showToast("Link copied to clipboard");
   logStatus("Share not available; copied link instead.");
 }
 
@@ -257,13 +258,209 @@ async function copyMyCoords() {
   logStatus("Copied my coordinates to clipboard.");
 }
 
+// --- peer functions ---
+function generateSessionId() {
+  return Math.random().toString(36).substring(2, 8);
+}
+
+function generatePeerId(sessionId) {
+  // Use the sessionId as our peer ID - both peers in same session use different partIDs
+  return `find-you-${sessionId}-${Math.random().toString(36).substring(2, 8)}`;
+}
+
+function initializePeer() {
+  if (peer) return;
+
+  // Generate or load peer ID
+  let sessionId = localStorage.getItem(LS_SESSION_ID);
+  if (!sessionId) {
+    sessionId = generateSessionId();
+    localStorage.setItem(LS_SESSION_ID, sessionId);
+  }
+
+  myPeerId = generatePeerId(sessionId);
+  localStorage.setItem(LS_PEER_ID, myPeerId);
+
+  peer = new Peer(myPeerId, {});
+
+  peer.on("open", (id) => {
+    logStatus(`Peer initialized: ${id.substring(0, 20)}...`);
+  });
+
+  peer.on("connection", handleIncomingConnection);
+
+  peer.on("error", (err) => {
+    logStatus(`Peer error: ${err.message || String(err)}`);
+  });
+
+  peer.on("disconnected", () => {
+    logStatus("Peer disconnected from signaling server.");
+    // Attempt to reconnect
+    if (peer) {
+      peer.reconnect();
+    }
+  });
+}
+
+function handleIncomingConnection(conn) {
+  if (peerConnection && peerConnection.open) {
+    conn.close();
+    return;
+  }
+
+  peerConnection = conn;
+  remotePeerId = conn.peer;
+
+  conn.on("open", () => {
+    logStatus(`Connected to peer: ${remotePeerId.substring(0, 20)}...`);
+    // Once connected, fill the partner's displayed ID
+    updateDisplay();
+  });
+
+  conn.on("data", (data) => {
+    handlePeerMessage(data);
+  });
+
+  conn.on("close", () => {
+    peerConnection = null;
+    setChip(permChip, "idle");
+    logStatus("Peer connection closed.");
+    updateDisplay();
+  });
+
+  conn.on("error", (err) => {
+    logStatus(`Peer connection error: ${err.message || String(err)}`);
+  });
+}
+
+function connectToPeer(peerId) {
+  if (!peer) {
+    initializePeer();
+  }
+
+  if (peerConnection && peerConnection.open) {
+    logStatus("Already connected to a peer.");
+    return;
+  }
+
+  remotePeerId = peerId;
+  connectionRetryCount = 0;
+  attemptConnection();
+}
+
+function attemptConnection() {
+  if (!peer || !remotePeerId) return;
+
+  peerConnection = peer.connect(remotePeerId);
+
+  peerConnection.on("open", () => {
+    connectionRetryCount = 0;
+    if (connectionRetryTimer) {
+      clearTimeout(connectionRetryTimer);
+      connectionRetryTimer = null;
+    }
+    setChip(permChip, "ok");
+    logStatus(`Connected to peer: ${remotePeerId.substring(0, 20)}...`);
+    updateDisplay();
+  });
+
+  peerConnection.on("data", (data) => {
+    handlePeerMessage(data);
+  });
+
+  peerConnection.on("close", () => {
+    peerConnection = null;
+    setChip(permChip, "idle");
+    logStatus("Peer connection closed.");
+    updateDisplay();
+  });
+
+  peerConnection.on("error", (err) => {
+    setChip(permChip, "bad");
+    const errMsg = err.message || String(err);
+    logStatus(`Peer connection error: ${errMsg}`);
+
+    // Retry with exponential backoff
+    if (connectionRetryCount < MAX_RETRIES) {
+      connectionRetryCount++;
+      const delay = Math.min(1000 * Math.pow(1.5, connectionRetryCount - 1), 10000);
+      logStatus(`Retrying connection in ${Math.round(delay / 1000)}s (attempt ${connectionRetryCount}/${MAX_RETRIES})...`);
+      connectionRetryTimer = setTimeout(() => {
+        if (remotePeerId && !peerConnection) {
+          attemptConnection();
+        }
+      }, delay);
+    } else {
+      logStatus("Max connection retries reached. Please refresh and try again.");
+    }
+  });
+}
+
+function handlePeerMessage(data) {
+  try {
+    if (data.type === "coordinates" && data.latitude != null && data.longitude != null) {
+      // Update target with partner's coordinates
+      target = { latitude: data.latitude, longitude: data.longitude };
+      const coordsStr = fmtCoords(target);
+      logStatus(`[P2P] Received coordinates: ${coordsStr}`);
+      updateDisplay();
+    } else if (data.type === "heartbeat") {
+      // Heartbeat received, connection is alive
+      // No action needed, just acknowledge receipt
+    }
+  } catch (error) {
+    logStatus(`Error handling peer message: ${error.message}`);
+  }
+}
+
+function sendCoordinatesToPeer() {
+  if (!peerConnection || !peerConnection.open || !lastPos) {
+    return;
+  }
+
+  const now = Date.now();
+  if (now - lastSyncTime < SYNC_INTERVAL) {
+    return;
+  }
+
+  try {
+    peerConnection.send({
+      type: "coordinates",
+      latitude: lastPos.latitude,
+      longitude: lastPos.longitude,
+      timestamp: now
+    });
+    lastSyncTime = now;
+    logStatus(`[P2P] Sent my location: ${fmtCoords(lastPos)}`);
+  } catch (error) {
+    logStatus(`Error sending coordinates: ${error.message}`);
+  }
+}
+
+function sendHeartbeat() {
+  if (!peerConnection || !peerConnection.open) {
+    return;
+  }
+
+  try {
+    peerConnection.send({
+      type: "heartbeat",
+      timestamp: Date.now()
+    });
+  } catch (error) {
+    // Silently fail for heartbeats
+  }
+}
+
 // --- display ---
 function updateDisplay() {
   headingVal.textContent = fmtDeg(lastHeading);
   myCoordsVal.textContent = fmtCoords(lastPos);
 
-  const maybeTarget = currentTargetFromInputs() || target;
+  // Prioritize synced target from peer over manually entered coordinates
+  const maybeTarget = target || currentTargetFromInputs();
   partnerCoordsVal.textContent = fmtCoords(maybeTarget);
+  
   if (!maybeTarget || !lastPos) {
     bearingVal.textContent = "—";
     deltaVal.textContent = "—";
@@ -304,6 +501,13 @@ function updateDisplay() {
   deltaVal.textContent = `${delta.toFixed(1)}°`;
   const angle = Math.round(delta * 100) / 100;
   arrow.style.transform = 'translate(-50%, -92%) rotate(' + angle + 'deg)';
+  
+  // Log bearing calculation with source
+  const myCoordsSrc = lastPos ? "[GPS]" : "";
+  const partnerCoordsSrc = target ? "[P2P]" : (currentTargetFromInputs() ? "[Manual]" : "");
+  if (myCoordsSrc && partnerCoordsSrc && (b !== null)) {
+    logStatus(`[CALC] Bearing: ${fmtDeg(b)} (My ${myCoordsSrc} → Partner ${partnerCoordsSrc})`);
+  }
 }
 
 // --- geolocation ---
@@ -321,6 +525,10 @@ function startGeolocation() {
     (pos) => {
       lastPos = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
       setChip(locChip, "ok");
+      const gpsCoords = fmtCoords(lastPos);
+      logStatus(`[GPS] Updated my location: ${gpsCoords}`);
+      // Send coordinates to peer
+      sendCoordinatesToPeer();
       updateDisplay();
     },
     (err) => {
@@ -329,6 +537,9 @@ function startGeolocation() {
     },
     { enableHighAccuracy: true, maximumAge: 500, timeout: 15000 }
   );
+
+  // Send heartbeat every 5 seconds to keep connection alive
+  heartbeatInterval = setInterval(sendHeartbeat, 5000);
 
   logStatus("Geolocation watch started.");
 }
@@ -346,8 +557,11 @@ function getCurrentPositionOnce() {
     (pos) => {
       lastPos = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
       setChip(locChip, "ok");
+      const gpsCoords = fmtCoords(lastPos);
+      logStatus(`[GPS] Fetched location: ${gpsCoords}`);
+      // Send coordinates to peer
+      sendCoordinatesToPeer();
       updateDisplay();
-      logStatus("Location updated.");
     },
     (err) => {
       setChip(locChip, "bad");
@@ -363,6 +577,10 @@ function stopGeolocation() {
     watchId = null;
     setChip(locChip, null);
     logStatus("Geolocation watch stopped.");
+  }
+  if (heartbeatInterval != null) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
   }
 }
 
@@ -455,7 +673,14 @@ findBtn.addEventListener("click", async () => {
 
 // --- modal controls ---
 function openPartnerModal() {
-  if (partnerModal) partnerModal.classList.add("show");
+  if (partnerModal) {
+    // Pre-fill modal inputs with current target coordinates (synced or manual)
+    if (target) {
+      tLat.value = String(target.latitude);
+      tLon.value = String(target.longitude);
+    }
+    partnerModal.classList.add("show");
+  }
 }
 
 function closePartnerModalFn() {
@@ -514,13 +739,16 @@ myCoordsVal.addEventListener("keydown", (event) => {
     logStatus("geolib library loaded successfully.");
   }
 
+  // Initialize peer
+  initializePeer();
+
   // Update display when user edits inputs
   [tLat, tLon].forEach((el) => el.addEventListener("input", updateDisplay));
 
   // 1) Fetch location once on page load
   getCurrentPositionOnce();
 
-  // 2) If URL has ?lat=..&lon=.., apply + save + clear params
+  // 2) If URL has ?peer=.., apply + connect
   applyQueryParamsThenClear();
 
   // 3) If no query params were used, load stored target into inputs

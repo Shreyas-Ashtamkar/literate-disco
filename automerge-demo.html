@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automerge + PeerJS Multi-Device Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .peer-connection {
+            background: #f0f7ff;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .peer-connection h2 {
+            color: #667eea;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .peer-id-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+
+        .peer-id-box {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 12px;
+        }
+
+        .peer-id-box label {
+            display: block;
+            font-weight: 600;
+            color: #555;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .peer-id-display {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #333;
+            word-break: break-all;
+            background: #f5f5f5;
+            padding: 8px;
+            border-radius: 3px;
+            margin-bottom: 8px;
+            min-height: 40px;
+        }
+
+        .connection-input {
+            display: flex;
+            gap: 8px;
+        }
+
+        .connection-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .connection-input button {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        .connection-input button:hover {
+            background: #5568d3;
+        }
+
+        .connection-status {
+            font-size: 12px;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .connection-status.connected {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #4caf50;
+        }
+
+        .connection-status.disconnected {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #f44336;
+        }
+
+        .demo-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .panel h2 {
+            color: #495057;
+            font-size: 16px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            color: #555;
+            font-weight: 500;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            resize: vertical;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.3s;
+            font-size: 13px;
+            margin-right: 8px;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .output-box {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 12px;
+            min-height: 100px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #333;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        .status {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 10px;
+            border-radius: 4px;
+            color: #2e7d32;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+
+        .error {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            color: #c62828;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .sync-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .sync-indicator.synced {
+            background: #4caf50;
+        }
+
+        .sync-indicator.syncing {
+            background: #ff9800;
+        }
+
+        .sync-indicator.unsynced {
+            background: #f44336;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @media (max-width: 768px) {
+            .demo-section {
+                grid-template-columns: 1fr;
+            }
+
+            .peer-id-section {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Automerge + PeerJS Multi-Device Demo</h1>
+        <p class="subtitle">Real peer-to-peer collaborative data synchronization across devices</p>
+
+        <!-- PeerJS Connection Section -->
+        <div class="peer-connection">
+            <h2>📡 Peer-to-Peer Connection</h2>
+            
+            <div class="peer-id-section">
+                <div class="peer-id-box">
+                    <label>Session Room:</label>
+                    <div class="peer-id-display" id="sessionRoom">Generating...</div>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="copySessionLink()" style="flex: 1;">Copy Link</button>
+                        <button onclick="newSession()" style="flex: 1;">New Session</button>
+                    </div>
+                </div>
+
+                <div class="peer-id-box">
+                    <div id="partnerSelection" style="display: none;">
+                        <label>Choose Your Role:</label>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: inline-flex; align-items: center; margin-right: 15px; cursor: pointer;">
+                                <input type="radio" name="partner" value="partner1" onchange="selectPartner(this.value)" style="margin-right: 5px;">
+                                Partner 1
+                            </label>
+                            <label style="display: inline-flex; align-items: center; cursor: pointer;">
+                                <input type="radio" name="partner" value="partner2" onchange="selectPartner(this.value)" style="margin-right: 5px;">
+                                Partner 2
+                            </label>
+                        </div>
+                    </div>
+                    <div class="connection-status disconnected" id="connectionStatus">
+                        ● Connecting...
+                    </div>
+                    <p style="font-size: 12px; color: #666; margin-top: 10px; text-align: center;">
+                        📱 Share the link to connect with another device
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <!-- Document Manager -->
+            <div class="panel">
+                <h2>Document Manager</h2>
+                
+                <div class="input-group">
+                    <label for="itemInput">Add Item to List:</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="itemInput" placeholder="Enter item name..." />
+                        <button onclick="addItem()">Add</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="keyInput">Update Metadata:</label>
+                    <input type="text" id="keyInput" placeholder="key" style="margin-bottom: 5px;" />
+                    <input type="text" id="valueInput" placeholder="value" style="margin-bottom: 5px;" />
+                    <button onclick="updateField()">Update</button>
+                </div>
+
+                <div class="input-group">
+                    <label>Actions:</label>
+                    <div class="button-group">
+                        <button onclick="createDoc()">New Doc</button>
+                        <button onclick="clearDoc()">Clear</button>
+                    </div>
+                </div>
+
+                <div class="status" id="status">Ready to sync</div>
+            </div>
+
+            <!-- Document View -->
+            <div class="panel">
+                <h2>Document State <span class="sync-indicator synced" id="syncIndicator"></span></h2>
+                <label>Current Document:</label>
+                <div class="output-box" id="docOutput">{"text": "Click 'New Doc' to start"}</div>
+            </div>
+        </div>
+
+        <!-- Change History -->
+        <div class="demo-section">
+            <div class="panel">
+                <h2>Local Changes</h2>
+                <label>Recent Local Changes:</label>
+                <div class="output-box" id="historyOutput">No changes yet</div>
+            </div>
+
+            <div class="panel">
+                <h2>Network Sync Events</h2>
+                <label>Sync Messages:</label>
+                <div class="output-box" id="syncOutput">Waiting for peer connection...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script type="module">
+        // Import Automerge library via ESM from unpkg
+        import * as A from "https://unpkg.com/@automerge/automerge@3.2.4/dist/mjs/index.js";
+
+        let currentDoc = null;
+        let changeHistory = [];
+        let peer = null;
+        let connection = null;
+        let syncLog = [];
+        let lastHeads = null;
+        let sessionId = null;
+        let myPeerId = null;
+        let myPartner = null;
+        let connectionAttemptInterval = null;
+
+        // Generate a short random session ID
+        function generateSessionId() {
+            return Math.random().toString(36).substring(2, 10);
+        }
+
+        // Get or create session ID from URL
+        function getSessionFromUrl() {
+            const hash = window.location.hash.replace('#', '');
+            if (hash && hash.length > 0) {
+                return hash;
+            }
+            return generateSessionId();
+        }
+
+        // Update URL with session ID
+        function updateUrlWithSession(id) {
+            window.history.replaceState(null, '', '#' + id);
+        }
+
+        // Generate peer ID based on session and partner role
+        function generatePeerId(sessionId, partner) {
+            return `automerge-${sessionId}-${partner}`;
+        }
+
+        // Get the other partner's ID
+        function getOtherPartnerId(sessionId, myPartner) {
+            const otherPartner = myPartner === 'partner1' ? 'partner2' : 'partner1';
+            return generatePeerId(sessionId, otherPartner);
+        }
+
+        // Initialize PeerJS with selected partner role
+        window.selectPartner = function(partner) {
+            myPartner = partner;
+            
+            // Save selection
+            sessionStorage.setItem(`selected-partner-${sessionId}`, partner);
+            
+            // Close existing peer if any
+            if (peer) {
+                peer.destroy();
+            }
+            
+            // Initialize new peer with this role
+            initializePeerWithRole(partner);
+        };
+
+        // Initialize PeerJS
+        function initializePeer() {
+            return new Promise((resolve) => {
+                sessionId = getSessionFromUrl();
+                updateUrlWithSession(sessionId);
+                updateSessionDisplay();
+                
+                // Check for partner suggestion in URL query parameter
+                const urlParams = new URLSearchParams(window.location.search);
+                const suggestedPartner = urlParams.get('partner');
+                const debugMode = urlParams.has('DEBUG');
+                
+                // Show partner selection only in DEBUG mode
+                if (debugMode) {
+                    document.getElementById('partnerSelection').style.display = 'block';
+                }
+                
+                // Check if partner was already selected
+                const savedPartner = sessionStorage.getItem(`selected-partner-${sessionId}`);
+                
+                if (savedPartner) {
+                    // Use saved partner
+                    myPartner = savedPartner;
+                    if (debugMode) {
+                        document.querySelector(`input[value="${savedPartner}"]`).checked = true;
+                    }
+                    initializePeerWithRole(savedPartner);
+                } else if (suggestedPartner && (suggestedPartner === 'partner1' || suggestedPartner === 'partner2')) {
+                    // Auto-select suggested partner
+                    myPartner = suggestedPartner;
+                    if (debugMode) {
+                        document.querySelector(`input[value="${suggestedPartner}"]`).checked = true;
+                    }
+                    selectPartner(suggestedPartner);
+                    
+                    // Clean up URL (keep DEBUG if present)
+                    const cleanUrl = debugMode 
+                        ? window.location.pathname + window.location.hash + '?DEBUG'
+                        : window.location.pathname + window.location.hash;
+                    window.history.replaceState({}, '', cleanUrl);
+                } else {
+                    // Default to partner1 if no suggestion
+                    myPartner = 'partner1';
+                    if (debugMode) {
+                        document.querySelector(`input[value="partner1"]`).checked = true;
+                    }
+                    selectPartner('partner1');
+                }
+                
+                resolve();
+            });
+        }
+
+        function initializePeerWithRole(partner) {
+            const peerId = generatePeerId(sessionId, partner);
+            
+            peer = new Peer(peerId, {
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            });
+
+            peer.on('open', (id) => {
+                myPeerId = id;
+                updateStatus(`✓ Connected as ${partner}`);
+                addSyncLog(`✓ You are ${partner}`);
+                
+                // Start trying to connect to the other partner
+                startConnectionAttempts();
+            });
+
+            peer.on('connection', handleIncomingConnection);
+            
+            peer.on('error', (err) => {
+                if (err.type === 'unavailable-id') {
+                    updateStatus('This partner slot is already taken. Choose the other one.', true);
+                    addSyncLog('✗ Partner slot taken');
+                } else {
+                    console.error('Peer error:', err.message);
+                }
+            });
+        }
+
+        function startConnectionAttempts() {
+            // Clear any existing interval
+            if (connectionAttemptInterval) {
+                clearInterval(connectionAttemptInterval);
+            }
+            
+            // Try to connect immediately
+            attemptConnectionToPartner();
+            
+            // Keep trying every 3 seconds until connected
+            connectionAttemptInterval = setInterval(() => {
+                if (!connection || !connection.open) {
+                    attemptConnectionToPartner();
+                }
+            }, 3000);
+        }
+
+        function attemptConnectionToPartner() {
+            if (!peer || !myPartner || (connection && connection.open)) {
+                return;
+            }
+
+            const otherPartnerId = getOtherPartnerId(sessionId, myPartner);
+            
+            try {
+                const conn = peer.connect(otherPartnerId, {
+                    reliable: true
+                });
+                
+                conn.on('open', () => {
+                    connection = conn;
+                    updateConnectionStatus(true);
+                    addSyncLog(`✓ Connected to partner`);
+                    sendCurrentDoc();
+                    
+                    // Stop connection attempts
+                    if (connectionAttemptInterval) {
+                        clearInterval(connectionAttemptInterval);
+                        connectionAttemptInterval = null;
+                    }
+                });
+                
+                conn.on('data', handlePeerMessage);
+                
+                conn.on('close', () => {
+                    if (connection === conn) {
+                        updateConnectionStatus(false);
+                        addSyncLog('✗ Partner disconnected');
+                        connection = null;
+                        // Restart connection attempts
+                        startConnectionAttempts();
+                    }
+                });
+                
+                conn.on('error', (err) => {
+                    console.log('Connection error:', err);
+                });
+            } catch (error) {
+                console.log('Connection attempt failed:', error);
+            }
+        }
+
+        function handleIncomingConnection(conn) {
+            if (connection && connection.open) {
+                // Already have a connection
+                conn.close();
+                return;
+            }
+            
+            connection = conn;
+            
+            conn.on('open', () => {
+                updateConnectionStatus(true);
+                addSyncLog('✓ Partner connected');
+                sendCurrentDoc();
+                
+                // Stop connection attempts
+                if (connectionAttemptInterval) {
+                    clearInterval(connectionAttemptInterval);
+                    connectionAttemptInterval = null;
+                }
+            });
+            
+            conn.on('data', handlePeerMessage);
+            
+            conn.on('close', () => {
+                if (connection === conn) {
+                    updateConnectionStatus(false);
+                    addSyncLog('✗ Partner disconnected');
+                    connection = null;
+                    // Restart connection attempts
+                    startConnectionAttempts();
+                }
+            });
+            
+            conn.on('error', (err) => {
+                console.log('Incoming connection error:', err);
+            });
+        }
+
+        window.copySessionLink = function() {
+            // Include the partner suggestion in the URL
+            const baseUrl = window.location.origin + window.location.pathname;
+            const automergeHash = window.location.hash;
+            const suggestedPartner = myPartner === 'partner1' ? 'partner2' : (myPartner === 'partner2' ? 'partner1' : 'partner1');
+            const url = `${baseUrl}?partner=${suggestedPartner}${automergeHash}`;
+            
+            // Try modern Clipboard API first
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(() => {
+                    updateStatus('✓ Link copied! Share with your peer.');
+                }).catch(() => {
+                    fallbackCopy(url);
+                });
+            } else {
+                fallbackCopy(url);
+            }
+        };
+
+        function fallbackCopy(text) {
+            // Fallback for older browsers or non-secure contexts
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                updateStatus('✓ Link copied! Share with your peer.');
+            } catch (err) {
+                updateStatus('Could not copy link. Please copy manually from the Session Room box.', true);
+            }
+            document.body.removeChild(textarea);
+        }
+
+        window.newSession = function() {
+            const newSessionId = generateSessionId();
+            sessionStorage.clear();
+            if (connectionAttemptInterval) {
+                clearInterval(connectionAttemptInterval);
+            }
+            window.location.hash = newSessionId;
+            window.location.reload();
+        };
+
+        function handlePeerMessage(message) {
+            try {
+                if (message.type === 'doc') {
+                    const remoteDocBinary = new Uint8Array(message.doc);
+                    const remoteDoc = A.load(remoteDocBinary);
+                    
+                    if (currentDoc) {
+                        // Merge remote document with current doc
+                        currentDoc = A.merge(currentDoc, remoteDoc);
+                        addSyncLog('↔ Merged remote document');
+                    } else {
+                        // Initialize from remote if we don't have a doc yet
+                        currentDoc = remoteDoc;
+                        addSyncLog('⬇ Synced document from peer');
+                    }
+                    lastHeads = A.getHeads(currentDoc);
+                    updateDisplay();
+                } else if (message.type === 'changes') {
+                    const changesArray = message.changes;
+                    
+                    if (currentDoc && changesArray.length > 0) {
+                        // Convert each change back to Uint8Array
+                        const changes = changesArray.map(change => new Uint8Array(change));
+                        const [newDoc] = A.applyChanges(currentDoc, changes);
+                        currentDoc = newDoc;
+                        lastHeads = A.getHeads(currentDoc);
+                        addSyncLog(`↔ Applied ${changes.length} remote change(s)`);
+                        updateDisplay();
+                    }
+                }
+            } catch (error) {
+                addSyncLog(`✗ Sync error: ${error.message}`);
+                console.error(error);
+            }
+        }
+
+        function sendCurrentDoc() {
+            if (!currentDoc || !connection || !connection.open) {
+                return;
+            }
+
+            try {
+                const docBinary = A.save(currentDoc);
+                const heads = A.getHeads(currentDoc);
+                
+                connection.send({
+                    type: 'doc',
+                    doc: Array.from(docBinary),
+                    heads: heads,
+                    timestamp: new Date().toISOString()
+                });
+                
+                addSyncLog('⬆ Sent document to peer');
+            } catch (error) {
+                addSyncLog(`✗ Send error: ${error.message}`);
+            }
+        }
+
+        function broadcastChanges(changes) {
+            if (!connection || !connection.open) {
+                return;
+            }
+
+            try {
+                const heads = A.getHeads(currentDoc);
+                // Convert each change to an array for transmission
+                const serializedChanges = changes.map(change => Array.from(change));
+                
+                connection.send({
+                    type: 'changes',
+                    changes: serializedChanges,
+                    heads: heads,
+                    timestamp: new Date().toISOString()
+                });
+                
+                addSyncLog(`⬆ Sent ${changes.length} change(s) to peer`);
+            } catch (error) {
+                addSyncLog(`✗ Broadcast error: ${error.message}`);
+            }
+        }
+
+        // Initialize on page load
+        async function initializeApp() {
+            try {
+                await A.initializeWasm();
+                await initializePeer();
+                
+                currentDoc = A.from({
+                    items: [],
+                    metadata: { createdAt: new Date().toISOString() }
+                });
+                lastHeads = A.getHeads(currentDoc);
+                updateDisplay();
+                updateStatus('✓ Automerge initialized! Select your partner role.');
+            } catch (error) {
+                updateStatus(`Error initializing: ${error.message}`, true);
+                console.error(error);
+            }
+        }
+
+        window.createDoc = function() {
+            try {
+                currentDoc = A.from({
+                    items: [],
+                    metadata: { createdAt: new Date().toISOString() }
+                });
+                lastHeads = A.getHeads(currentDoc);
+                changeHistory = [];
+                updateDisplay();
+                sendCurrentDoc();
+                updateStatus('✓ Created new document and synced to peer');
+            } catch (error) {
+                updateStatus(`Error creating document: ${error.message}`, true);
+            }
+        };
+
+        window.addItem = function() {
+            if (!currentDoc) {
+                updateStatus('Create a document first', true);
+                return;
+            }
+
+            const input = document.getElementById('itemInput');
+            const item = input.value.trim();
+            
+            if (!item) {
+                updateStatus('Please enter an item name', true);
+                return;
+            }
+
+            try {
+                const docBefore = JSON.stringify(docToPlainObject(currentDoc));
+                
+                currentDoc = A.change(currentDoc, (doc) => {
+                    doc.items.push({
+                        id: Date.now().toString(36),
+                        name: item,
+                        createdAt: new Date().toISOString(),
+                        completed: false
+                    });
+                });
+
+                const changes = A.getAllChanges(currentDoc).slice(
+                    lastHeads ? A.getAllChanges(currentDoc).findIndex(c => lastHeads.includes(c.hash)) : 0
+                );
+                lastHeads = A.getHeads(currentDoc);
+
+                changeHistory.push({
+                    timestamp: new Date().toISOString(),
+                    action: `Added item: "${item}"`,
+                    before: docBefore,
+                    after: JSON.stringify(docToPlainObject(currentDoc))
+                });
+
+                broadcastChanges(changes);
+                input.value = '';
+                updateDisplay();
+                updateStatus(`✓ Added item: "${item}" (synced)`);
+            } catch (error) {
+                updateStatus(`Error adding item: ${error.message}`, true);
+            }
+        };
+
+        window.updateField = function() {
+            if (!currentDoc) {
+                updateStatus('Create a document first', true);
+                return;
+            }
+
+            const keyInput = document.getElementById('keyInput');
+            const valueInput = document.getElementById('valueInput');
+            const key = keyInput.value.trim();
+            const value = valueInput.value.trim();
+
+            if (!key || !value) {
+                updateStatus('Please enter both key and value', true);
+                return;
+            }
+
+            try {
+                const docBefore = JSON.stringify(docToPlainObject(currentDoc));
+
+                currentDoc = A.change(currentDoc, (doc) => {
+                    doc.metadata[key] = value;
+                });
+
+                const changes = A.getAllChanges(currentDoc).slice(
+                    lastHeads ? A.getAllChanges(currentDoc).findIndex(c => lastHeads.includes(c.hash)) : 0
+                );
+                lastHeads = A.getHeads(currentDoc);
+
+                changeHistory.push({
+                    timestamp: new Date().toISOString(),
+                    action: `Set metadata: ${key} = ${value}`,
+                    before: docBefore,
+                    after: JSON.stringify(docToPlainObject(currentDoc))
+                });
+
+                broadcastChanges(changes);
+                keyInput.value = '';
+                valueInput.value = '';
+                updateDisplay();
+                updateStatus(`✓ Updated field: ${key} (synced)`);
+            } catch (error) {
+                updateStatus(`Error updating field: ${error.message}`, true);
+            }
+        };
+
+        window.clearDoc = function() {
+            try {
+                currentDoc = A.from({
+                    items: [],
+                    metadata: { clearedAt: new Date().toISOString() }
+                });
+                lastHeads = A.getHeads(currentDoc);
+                changeHistory = [];
+                updateDisplay();
+                sendCurrentDoc();
+                updateStatus('✓ Document cleared and synced');
+            } catch (error) {
+                updateStatus(`Error clearing document: ${error.message}`, true);
+            }
+        };
+
+        function updateSessionDisplay() {
+            const display = document.getElementById('sessionRoom');
+            const currentUrl = window.location.href;
+            display.textContent = currentUrl;
+            display.style.wordBreak = 'break-all';
+        }
+
+        function docToPlainObject(doc) {
+            return {
+                items: Array.from(doc.items || []),
+                metadata: { ...doc.metadata }
+            };
+        }
+
+        function updateDisplay() {
+            if (!currentDoc) {
+                document.getElementById('docOutput').textContent = 'No document created';
+                document.getElementById('historyOutput').textContent = 'No history';
+                return;
+            }
+
+            const docOutput = document.getElementById('docOutput');
+            const plainDoc = docToPlainObject(currentDoc);
+            docOutput.textContent = JSON.stringify(plainDoc, null, 2);
+
+            const historyOutput = document.getElementById('historyOutput');
+            if (changeHistory.length === 0) {
+                historyOutput.textContent = 'No changes yet';
+            } else {
+                historyOutput.textContent = changeHistory
+                    .slice(-5)
+                    .reverse()
+                    .map((h) => `${h.timestamp}\n${h.action}`)
+                    .join('\n\n');
+            }
+        }
+
+        function updateConnectionStatus(isConnected) {
+            const status = document.getElementById('connectionStatus');
+            if (isConnected) {
+                status.className = 'connection-status connected';
+                status.textContent = '✓ Connected to partner - Syncing in real-time';
+                setSyncIndicator('synced');
+            } else {
+                status.className = 'connection-status disconnected';
+                status.textContent = '✗ Waiting for partner...';
+                setSyncIndicator('unsynced');
+            }
+        }
+
+        function setSyncIndicator(state) {
+            const indicator = document.getElementById('syncIndicator');
+            indicator.className = `sync-indicator ${state}`;
+        }
+
+        function addSyncLog(message) {
+            syncLog.push(`[${new Date().toLocaleTimeString()}] ${message}`);
+            if (syncLog.length > 20) syncLog.shift();
+            
+            const syncOutput = document.getElementById('syncOutput');
+            syncOutput.textContent = syncLog.join('\n');
+            syncOutput.scrollTop = syncOutput.scrollHeight;
+        }
+
+        function updateStatus(message, isError = false) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = isError ? 'status error' : 'status';
+        }
+
+        // Initialize when page loads
+        initializeApp();
+    </script>
+</body>
+</html>
