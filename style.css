@@ -416,7 +416,7 @@ button:active{transform:translateY(1px)}
   font-size:12px;
   letter-spacing:.4px;
   text-transform:uppercase;
-  color:var(--muted);
+  color:var(--text);
 }
 
 .stat-ico{font-size:16px}
