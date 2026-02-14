@@ -401,7 +401,8 @@ function handlePeerMessage(data) {
     if (data.type === "coordinates" && data.latitude != null && data.longitude != null) {
       // Update target with partner's coordinates
       target = { latitude: data.latitude, longitude: data.longitude };
-      logStatus(`Received coordinates from peer: ${fmtCoords(target)}`);
+      const coordsStr = fmtCoords(target);
+      logStatus(`[P2P] Received coordinates: ${coordsStr}`);
       updateDisplay();
     } else if (data.type === "heartbeat") {
       // Heartbeat received, connection is alive
@@ -430,6 +431,7 @@ function sendCoordinatesToPeer() {
       timestamp: now
     });
     lastSyncTime = now;
+    logStatus(`[P2P] Sent my location: ${fmtCoords(lastPos)}`);
   } catch (error) {
     logStatus(`Error sending coordinates: ${error.message}`);
   }
@@ -455,14 +457,9 @@ function updateDisplay() {
   headingVal.textContent = fmtDeg(lastHeading);
   myCoordsVal.textContent = fmtCoords(lastPos);
 
-  const maybeTarget = currentTargetFromInputs() || target;
-  
-  // If we have a synced target from peer, show that even if inputs are empty
-  if (target && (!tLat.value && !tLon.value)) {
-    partnerCoordsVal.textContent = fmtCoords(target);
-  } else {
-    partnerCoordsVal.textContent = fmtCoords(maybeTarget);
-  }
+  // Prioritize synced target from peer over manually entered coordinates
+  const maybeTarget = target || currentTargetFromInputs();
+  partnerCoordsVal.textContent = fmtCoords(maybeTarget);
   
   if (!maybeTarget || !lastPos) {
     bearingVal.textContent = "—";
@@ -504,6 +501,13 @@ function updateDisplay() {
   deltaVal.textContent = `${delta.toFixed(1)}°`;
   const angle = Math.round(delta * 100) / 100;
   arrow.style.transform = 'translate(-50%, -92%) rotate(' + angle + 'deg)';
+  
+  // Log bearing calculation with source
+  const myCoordsSrc = lastPos ? "[GPS]" : "";
+  const partnerCoordsSrc = target ? "[P2P]" : (currentTargetFromInputs() ? "[Manual]" : "");
+  if (myCoordsSrc && partnerCoordsSrc && (b !== null)) {
+    logStatus(`[CALC] Bearing: ${fmtDeg(b)} (My ${myCoordsSrc} → Partner ${partnerCoordsSrc})`);
+  }
 }
 
 // --- geolocation ---
@@ -521,6 +525,8 @@ function startGeolocation() {
     (pos) => {
       lastPos = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
       setChip(locChip, "ok");
+      const gpsCoords = fmtCoords(lastPos);
+      logStatus(`[GPS] Updated my location: ${gpsCoords}`);
       // Send coordinates to peer
       sendCoordinatesToPeer();
       updateDisplay();
@@ -551,10 +557,11 @@ function getCurrentPositionOnce() {
     (pos) => {
       lastPos = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
       setChip(locChip, "ok");
+      const gpsCoords = fmtCoords(lastPos);
+      logStatus(`[GPS] Fetched location: ${gpsCoords}`);
       // Send coordinates to peer
       sendCoordinatesToPeer();
       updateDisplay();
-      logStatus("Location updated.");
     },
     (err) => {
       setChip(locChip, "bad");
@@ -666,7 +673,14 @@ findBtn.addEventListener("click", async () => {
 
 // --- modal controls ---
 function openPartnerModal() {
-  if (partnerModal) partnerModal.classList.add("show");
+  if (partnerModal) {
+    // Pre-fill modal inputs with current target coordinates (synced or manual)
+    if (target) {
+      tLat.value = String(target.latitude);
+      tLon.value = String(target.longitude);
+    }
+    partnerModal.classList.add("show");
+  }
 }
 
 function closePartnerModalFn() {
